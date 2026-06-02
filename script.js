@@ -3,14 +3,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 1. GLOBAL SETTINGS & NAVIGATION
     // ==========================================
-    const themeBtn = document.getElementById('theme-toggle');
     const isDark = localStorage.getItem('darkMode') === 'true';
     if (isDark) document.body.classList.add('dark-mode');
 
-    themeBtn.addEventListener('click', () => {
+    // Handles both PC and Mobile Dark Mode buttons
+    const toggleTheme = () => {
         document.body.classList.toggle('dark-mode');
         localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-    });
+    };
+    document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+    document.getElementById('mobile-theme-toggle')?.addEventListener('click', toggleTheme);
 
     const navLinks = document.querySelectorAll('.nav-links li');
     const views = document.querySelectorAll('.view');
@@ -30,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================
-    // 2. DASHBOARD LOGIC (Todos, Habits, Pomodoro, Resets)
+    // 2. DASHBOARD LOGIC 
     // ==========================================
     let todos = JSON.parse(localStorage.getItem('todos')) || [];
     let habits = JSON.parse(localStorage.getItem('habits')) || [];
@@ -51,15 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stat-habits').textContent = habits.length;
     }
 
-    // Reset Stats
     document.getElementById('reset-stats').addEventListener('click', () => {
-        if(confirm("Are you sure you want to reset your overall statistics to zero?")) {
-            stats = { tasks: 0, sessions: 0 };
-            saveDash();
+        if(confirm("Reset overall statistics to zero?")) {
+            stats = { tasks: 0, sessions: 0 }; saveDash();
         }
     });
 
-    // Todos
     const todoList = document.getElementById('todo-list');
     function renderTodos() {
         todoList.innerHTML = '';
@@ -80,15 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.toggleTodo = (i) => { todos[i].completed = !todos[i].completed; if (todos[i].completed) stats.tasks++; saveDash(); renderTodos(); };
     window.deleteTodo = (i) => { todos.splice(i, 1); saveDash(); renderTodos(); };
-    
-    // Clear Todos
-    document.getElementById('clear-todos').addEventListener('click', () => {
-        if(confirm("Are you sure you want to delete all tasks?")) {
-            todos = []; saveDash(); renderTodos();
-        }
-    });
+    document.getElementById('clear-todos').addEventListener('click', () => { if(confirm("Delete all tasks?")) { todos = []; saveDash(); renderTodos(); }});
 
-    // Habits
     const habitList = document.getElementById('habit-list');
     function renderHabits() {
         habitList.innerHTML = '';
@@ -97,8 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const done = habit.lastCompleted === today;
             habitList.innerHTML += `
                 <li>
-                    <span>${habit.name} (Streak: ${habit.streak} 🔥)</span>
-                    <button class="btn ${done ? 'secondary' : 'primary'} btn-sm" onclick="completeHabit(${i})" ${done ? 'disabled' : ''}>${done ? 'Done' : 'Complete'}</button>
+                    <span class="item-content">${habit.name} (${habit.streak} 🔥)</span>
+                    <button class="btn ${done ? 'secondary' : 'primary'} btn-sm" onclick="completeHabit(${i})" ${done ? 'disabled' : ''}>${done ? 'Done' : 'Do'}</button>
                 </li>`;
         });
     }
@@ -107,23 +99,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (input.value.trim()) { habits.push({ name: input.value.trim(), streak: 0, lastCompleted: null }); input.value = ''; saveDash(); renderHabits(); }
     });
     window.completeHabit = (i) => { habits[i].streak++; habits[i].lastCompleted = new Date().toDateString(); saveDash(); renderHabits(); };
-    
-    // Reset Habit Streaks
-    document.getElementById('reset-habits').addEventListener('click', () => {
-        if(confirm("Are you sure you want to reset all your habit streaks to zero?")) {
-            habits.forEach(h => { h.streak = 0; h.lastCompleted = null; });
-            saveDash(); renderHabits();
-        }
-    });
+    document.getElementById('reset-habits').addEventListener('click', () => { if(confirm("Reset all habit streaks?")) { habits.forEach(h => { h.streak = 0; h.lastCompleted = null; }); saveDash(); renderHabits(); }});
 
-    // Goals
     const goalList = document.getElementById('goal-list');
     function renderGoals() {
         goalList.innerHTML = '';
         goals.forEach((goal, i) => {
             goalList.innerHTML += `
                 <li style="flex-direction:column; align-items:flex-start;">
-                    <div style="display:flex; justify-content:space-between; width:100%;"><span>${goal.name}</span><button class="delete-btn" onclick="deleteGoal(${i})">×</button></div>
+                    <div style="display:flex; justify-content:space-between; width:100%;">
+                        <span class="item-content">${goal.name}</span>
+                        <button class="delete-btn" onclick="deleteGoal(${i})">×</button>
+                    </div>
                     <div style="display:flex; width:100%; gap:10px; margin-top:10px;">
                         <input type="range" min="0" max="100" value="${goal.progress}" onchange="updateGoal(${i}, this.value)" style="flex:1;">
                         <span>${goal.progress}%</span>
@@ -137,15 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.updateGoal = (i, val) => { goals[i].progress = val; saveDash(); renderGoals(); };
     window.deleteGoal = (i) => { goals.splice(i, 1); saveDash(); renderGoals(); };
-    
-    // Clear Goals
-    document.getElementById('clear-goals').addEventListener('click', () => {
-        if(confirm("Are you sure you want to delete all goals?")) {
-            goals = []; saveDash(); renderGoals();
-        }
-    });
+    document.getElementById('clear-goals').addEventListener('click', () => { if(confirm("Delete all goals?")) { goals = []; saveDash(); renderGoals(); }});
 
-    // Pomodoro
     let timerInterval, timeLeft = 25 * 60, isRunning = false;
     const timerDisplay = document.getElementById('timer-display');
     function updateTimer() {
@@ -167,242 +147,127 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // ==========================================
-    // 3. WHITEBOARD LOGIC
+    // 3. WHITEBOARD LOGIC (WITH TOUCH SUPPORT)
     // ==========================================
     const canvas = document.getElementById('whiteboard-canvas');
     if(canvas) {
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const wrapper = document.getElementById('canvas-wrapper');
-        
         let isDrawing = false;
         let currentTool = 'pencil';
         let zoomLevel = 1;
-        let history = [];
-        let historyStep = -1;
 
-        // Set initial background to white
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Load from LocalStorage
         const savedCanvas = localStorage.getItem('whiteboard_data');
         if (savedCanvas) {
             const img = new Image();
-            img.onload = () => { ctx.drawImage(img, 0, 0); saveState(); };
+            img.onload = () => { ctx.drawImage(img, 0, 0); };
             img.src = savedCanvas;
-        } else {
-            saveState();
         }
 
-        // Tools setup
         const tools = document.querySelectorAll('.tool-btn[id^="tool-"]');
         tools.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', () => {
                 tools.forEach(t => t.classList.remove('active'));
                 btn.classList.add('active');
                 currentTool = btn.id.replace('tool-', '');
             });
         });
 
-        // Drawing coordinates adjustment for zoom
-        function getMousePos(e) {
+        // Universal coordinate getter (Mouse OR Touch)
+        function getCoords(e) {
             const rect = canvas.getBoundingClientRect();
-            return {
-                x: (e.clientX - rect.left) / zoomLevel,
-                y: (e.clientY - rect.top) / zoomLevel
-            };
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            
+            if(e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+            
+            return { x: (clientX - rect.left) / zoomLevel, y: (clientY - rect.top) / zoomLevel };
         }
 
-        canvas.addEventListener('mousedown', (e) => {
-            if (currentTool === 'text') {
-                handleTextTool(e);
-                return;
-            }
+        function startDraw(e) {
+            if (currentTool === 'text') return; // Handled separately
             isDrawing = true;
-            const pos = getMousePos(e);
+            const pos = getCoords(e);
             ctx.beginPath();
             ctx.moveTo(pos.x, pos.y);
             
-            // Tool specific settings
             ctx.lineWidth = document.getElementById('wb-size').value;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             
             if (currentTool === 'pencil') {
-                ctx.globalCompositeOperation = 'source-over';
                 ctx.globalAlpha = 1.0;
                 ctx.strokeStyle = document.getElementById('wb-color').value;
             } else if (currentTool === 'highlighter') {
-                ctx.globalCompositeOperation = 'source-over';
                 ctx.globalAlpha = 0.3;
                 ctx.strokeStyle = document.getElementById('wb-color').value;
             } else if (currentTool === 'eraser') {
-                ctx.globalCompositeOperation = 'source-over';
                 ctx.globalAlpha = 1.0;
                 ctx.strokeStyle = '#ffffff'; 
             }
-        });
+        }
 
-        canvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing || currentTool === 'text') return;
-            const pos = getMousePos(e);
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault(); // Prevents mobile screen from scrolling while drawing
+            const pos = getCoords(e);
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
-        });
+        }
 
-        const stopDrawing = () => {
+        function endDraw() {
             if (isDrawing) {
                 ctx.closePath();
                 isDrawing = false;
-                saveState();
                 localStorage.setItem('whiteboard_data', canvas.toDataURL());
             }
-        };
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
-
-        // Text Tool Logic
-        const textInput = document.getElementById('text-tool-input');
-        function handleTextTool(e) {
-            if (textInput.style.display === 'block') return; 
-            const pos = getMousePos(e);
-            const rect = canvas.getBoundingClientRect();
-            
-            textInput.style.display = 'block';
-            textInput.style.left = (rect.left + pos.x * zoomLevel) + 'px';
-            textInput.style.top = (rect.top + pos.y * zoomLevel) + 'px';
-            textInput.style.color = document.getElementById('wb-color').value;
-            textInput.style.fontSize = (document.getElementById('wb-size').value * 5 * zoomLevel) + 'px';
-            textInput.innerText = '';
-            textInput.focus();
-
-            textInput.onblur = () => {
-                if (textInput.innerText.trim() !== '') {
-                    ctx.globalCompositeOperation = 'source-over';
-                    ctx.globalAlpha = 1.0;
-                    ctx.fillStyle = textInput.style.color;
-                    ctx.font = `${document.getElementById('wb-size').value * 5}px sans-serif`;
-                    ctx.textBaseline = 'top';
-                    ctx.fillText(textInput.innerText, pos.x, pos.y);
-                    saveState();
-                    localStorage.setItem('whiteboard_data', canvas.toDataURL());
-                }
-                textInput.style.display = 'none';
-            };
         }
 
-        // Undo / Redo
-        function saveState() {
-            historyStep++;
-            if (historyStep < history.length) { history.length = historyStep; }
-            history.push(canvas.toDataURL());
-        }
-        
-        document.getElementById('wb-undo').addEventListener('click', () => {
-            if (historyStep > 0) {
-                historyStep--;
-                const canvasPic = new Image();
-                canvasPic.src = history[historyStep];
-                canvasPic.onload = () => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(canvasPic, 0, 0);
-                };
-            }
-        });
+        // Mouse Events
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('mouseout', endDraw);
 
-        document.getElementById('wb-redo').addEventListener('click', () => {
-            if (historyStep < history.length - 1) {
-                historyStep++;
-                const canvasPic = new Image();
-                canvasPic.src = history[historyStep];
-                canvasPic.onload = () => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(canvasPic, 0, 0);
-                };
-            }
-        });
+        // Touch Events (MOBILE)
+        canvas.addEventListener('touchstart', (e) => { if(e.touches.length === 1) { e.preventDefault(); startDraw(e); } }, {passive: false});
+        canvas.addEventListener('touchmove', draw, {passive: false});
+        canvas.addEventListener('touchend', endDraw);
 
         document.getElementById('wb-clear').addEventListener('click', () => {
-            if(confirm("Clear the entire whiteboard?")) {
+            if(confirm("Clear whiteboard?")) {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                saveState();
                 localStorage.removeItem('whiteboard_data');
             }
-        });
-
-        // Zoom Controls
-        const zoomText = document.getElementById('wb-zoom-level');
-        function applyZoom() {
-            canvas.style.transform = `scale(${zoomLevel})`;
-            zoomText.innerText = Math.round(zoomLevel * 100) + '%';
-        }
-        document.getElementById('wb-zoom-in').addEventListener('click', () => { if(zoomLevel < 3) { zoomLevel += 0.2; applyZoom(); }});
-        document.getElementById('wb-zoom-out').addEventListener('click', () => { if(zoomLevel > 0.4) { zoomLevel -= 0.2; applyZoom(); }});
-
-        // Export / Import
-        document.getElementById('wb-export').addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.download = 'whiteboard.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        });
-
-        document.getElementById('wb-import').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    ctx.drawImage(img, 0, 0);
-                    saveState();
-                    localStorage.setItem('whiteboard_data', canvas.toDataURL());
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
         });
     }
 
     // ==========================================
     // 4. NOTES LOGIC
     // ==========================================
-    let folders = JSON.parse(localStorage.getItem('notes_folders')) || [{ id: '1', name: 'General' }];
     let notes = JSON.parse(localStorage.getItem('notes_data')) || [];
-    let activeFolderId = folders[0]?.id || '1';
     let activeNoteId = null;
 
-    const folderListEl = document.getElementById('folder-list');
     const noteListEl = document.getElementById('note-list');
     const noteTitleInput = document.getElementById('note-title-input');
     const noteEditor = document.getElementById('note-editor');
     const searchInput = document.getElementById('note-search');
 
-    function saveNotesData() {
-        localStorage.setItem('notes_folders', JSON.stringify(folders));
-        localStorage.setItem('notes_data', JSON.stringify(notes));
-    }
-
-    function renderFolders() {
-        if(!folderListEl) return;
-        folderListEl.innerHTML = '';
-        folders.forEach(f => {
-            const li = document.createElement('li');
-            li.textContent = f.name;
-            if (f.id === activeFolderId) li.classList.add('active');
-            li.onclick = () => { activeFolderId = f.id; activeNoteId = null; renderFolders(); renderNotes(); clearEditor(); };
-            folderListEl.appendChild(li);
-        });
-    }
+    function saveNotesData() { localStorage.setItem('notes_data', JSON.stringify(notes)); }
 
     function renderNotes(filter = '') {
         if(!noteListEl) return;
         noteListEl.innerHTML = '';
-        const folderNotes = notes.filter(n => n.folderId === activeFolderId && n.title.toLowerCase().includes(filter.toLowerCase()));
-        folderNotes.forEach(n => {
+        const filteredNotes = notes.filter(n => n.title.toLowerCase().includes(filter.toLowerCase()));
+        filteredNotes.forEach(n => {
             const li = document.createElement('li');
-            li.textContent = n.title || 'Untitled Note';
+            li.textContent = n.title || 'Untitled';
             if (n.id === activeNoteId) li.classList.add('active');
             li.onclick = () => { loadNote(n.id); };
             noteListEl.appendChild(li);
@@ -415,48 +280,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (note) {
             noteTitleInput.value = note.title;
             noteEditor.innerHTML = note.content;
-            renderNotes(searchInput.value);
+            renderNotes(searchInput?.value || '');
         }
     }
 
-    function clearEditor() {
-        if(noteTitleInput) noteTitleInput.value = '';
-        if(noteEditor) noteEditor.innerHTML = '';
-    }
+    document.getElementById('add-note-btn')?.addEventListener('click', () => {
+        const id = Date.now().toString();
+        notes.push({ id, title: 'New Note', content: '' });
+        saveNotesData();
+        loadNote(id);
+    });
 
-    // Event Listeners for Notes CRUD
-    const addFolderBtn = document.getElementById('add-folder-btn');
-    if(addFolderBtn) {
-        addFolderBtn.addEventListener('click', () => {
-            const name = prompt("Folder Name:");
-            if (name) {
-                const id = Date.now().toString();
-                folders.push({ id, name });
-                activeFolderId = id;
-                saveNotesData(); renderFolders(); renderNotes(); clearEditor();
-            }
-        });
-    }
+    searchInput?.addEventListener('input', (e) => { renderNotes(e.target.value); });
 
-    const addNoteBtn = document.getElementById('add-note-btn');
-    if(addNoteBtn) {
-        addNoteBtn.addEventListener('click', () => {
-            if (!activeFolderId) return alert("Select a folder first");
-            const id = Date.now().toString();
-            const newNote = { id, folderId: activeFolderId, title: 'New Note', content: '' };
-            notes.push(newNote);
-            saveNotesData();
-            loadNote(id);
-        });
-    }
-
-    if(searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            renderNotes(e.target.value);
-        });
-    }
-
-    // Auto-save typing
     const saveCurrentNote = () => {
         if (!activeNoteId) return;
         const note = notes.find(n => n.id === activeNoteId);
@@ -466,54 +302,27 @@ document.addEventListener('DOMContentLoaded', () => {
             saveNotesData();
         }
     };
-    if(noteTitleInput) noteTitleInput.addEventListener('keyup', () => { saveCurrentNote(); renderNotes(searchInput.value); });
-    if(noteEditor) {
-        noteEditor.addEventListener('keyup', saveCurrentNote);
-        noteEditor.addEventListener('mouseup', saveCurrentNote); 
-    }
 
-    // Rich Text Commands
+    noteTitleInput?.addEventListener('keyup', () => { saveCurrentNote(); renderNotes(searchInput?.value || ''); });
+    noteEditor?.addEventListener('keyup', saveCurrentNote);
+    noteEditor?.addEventListener('mouseup', saveCurrentNote); 
+
     document.querySelectorAll('.ed-btn[data-command]').forEach(btn => {
         btn.addEventListener('click', () => {
-            const cmd = btn.getAttribute('data-command');
-            document.execCommand(cmd, false, null);
-            noteEditor.focus();
-            saveCurrentNote();
+            document.execCommand(btn.getAttribute('data-command'), false, null);
+            noteEditor.focus(); saveCurrentNote();
         });
     });
 
-    const edHighlight = document.getElementById('ed-highlight');
-    if(edHighlight) {
-        edHighlight.addEventListener('click', () => {
-            document.execCommand('hiliteColor', false, '#fef08a');
-            noteEditor.focus();
-            saveCurrentNote();
-        });
-    }
+    document.getElementById('ed-highlight')?.addEventListener('click', () => {
+        document.execCommand('hiliteColor', false, '#fef08a');
+        noteEditor.focus(); saveCurrentNote();
+    });
 
-    const edChecklist = document.getElementById('ed-checklist');
-    if(edChecklist) {
-        edChecklist.addEventListener('click', () => {
-            const checkboxHTML = `<input type="checkbox"> `;
-            document.execCommand('insertHTML', false, checkboxHTML);
-            noteEditor.focus();
-            saveCurrentNote();
-        });
-    }
+    document.getElementById('ed-checklist')?.addEventListener('click', () => {
+        document.execCommand('insertHTML', false, `<input type="checkbox"> `);
+        noteEditor.focus(); saveCurrentNote();
+    });
 
-    const edImage = document.getElementById('ed-image');
-    if(edImage) {
-        edImage.addEventListener('click', () => {
-            const url = prompt("Enter image URL:");
-            if (url) {
-                document.execCommand('insertImage', false, url);
-                saveCurrentNote();
-            }
-        });
-    }
-
-    // Initialize Notes
-    renderFolders();
-    if (activeFolderId) renderNotes();
-
+    renderNotes();
 });
